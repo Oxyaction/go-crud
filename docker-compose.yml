@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+  db:
+    image: postgres:12-alpine
+    ports:
+      - 5432:5432
+    environment: 
+      POSTGRES_PASSWORD: crud
+    volumes: 
+      - /var/lib/postgresql/data
+      - ./docker/postgres.sh:/docker-entrypoint-initdb.d/postgres.sh
+  
