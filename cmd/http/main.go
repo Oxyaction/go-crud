@@ -9,7 +9,7 @@ import (
 
 	"github.com/Oxyaction/go-crud/cmd/http/handlers"
 
-	"github.com/Oxyaction/go-crud/internals/platform/db"
+	"github.com/Oxyaction/go-crud/internal/platform/db"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

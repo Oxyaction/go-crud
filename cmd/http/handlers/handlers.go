@@ -14,5 +14,5 @@ func AttachHandlers(router *httprouter.Router, db *pgx.Conn) {
 		mw.AuthMiddleware,
 	}
 
-	router.GET("/register", mw.Wrap(middlewares, user.register))
+	router.POST("/register", mw.Wrap(middlewares, user.register))
 }
