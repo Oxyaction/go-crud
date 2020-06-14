@@ -48,7 +48,8 @@ func initLogger() {
 func main() {
 	initConfig()
 	initLogger()
-	conn, err := db.Open(context.Background(), &db.DbConfig{
+
+	db, close, err := db.NewDB(context.Background(), &db.DbConfig{
 		Host:     viper.GetString("db.host"),
 		Port:     viper.GetInt("db.port"),
 		Database: viper.GetString("db.database"),
@@ -56,14 +57,14 @@ func main() {
 		Password: viper.GetString("db.password"),
 	})
 
-	defer conn.Close(context.Background())
-
 	if err != nil {
 		panic(fmt.Sprintf("Error connecting to db %v", err))
 	}
 
+	defer close()
+
 	router := httprouter.New()
-	handlers.AttachHandlers(router, conn)
+	handlers.AttachHandlers(router, db)
 
 	port := strconv.Itoa(viper.GetInt("port"))
 	s := &http.Server{

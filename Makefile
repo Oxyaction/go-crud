@@ -12,20 +12,20 @@ remove_omitempty:
 
 grpc: grpc_clean generate_grpc remove_omitempty
 
-migrate/%:
-	cd services/$(@F) && DB_NAME=$(@F) tern migrate --migrations ./migrations
+migrate:
+	DB_NAME=crud tern migrate --migrations ./migrations
 
-migrate_undo/%:
-	cd services/$(@F) && DB_NAME=$(@F) tern migrate --migrations ./migrations --destination -1
+migrate_undo:
+	DB_NAME=crud tern migrate --migrations ./migrations --destination -1
 
-migrate_test/%:
-	cd services/$(@F) && DB_NAME=$(@F)_test tern migrate --migrations ./migrations
+migrate_test:
+	DB_NAME=crud_test tern migrate --migrations ./migrations
 
-migrate_test_undo/%:
-	cd services/$(@F) && DB_NAME=$(@F)_test tern migrate --migrations ./migrations --destination -1
+migrate_test_undo:
+	DB_NAME=crud_test tern migrate --migrations ./migrations --destination -1
 
 local_dev:
 	docker-compose up db
 
 connect_db:
-	docker-compose exec db psql -U postgres
+	docker-compose exec db psql -U postgres -d crud

@@ -2,78 +2,52 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"strings"
 
-	userData "github.com/Oxyaction/go-crud/internal/user"
-	httprouter "github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/Oxyaction/go-crud/internal/platform/db"
+	"github.com/Oxyaction/go-crud/internal/user"
+	"github.com/Oxyaction/go-crud/pkg/jsonutil"
+	httprouter "github.com/julienschmidt/httprouter"
 )
 
-type user struct {
+type userHandler struct {
+	userManager *user.UserManager
 }
 
-func (u *user) register(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	contentType := r.Header.Get("Content-Type")
-
-	if contentType == "" || contentType != "application/json" {
-		http.Error(w, "Incorrect content-type", http.StatusBadRequest)
-		return
+func NewHandler(db *db.DB) *userHandler {
+	return &userHandler{
+		userManager: user.NewManager(db),
 	}
+}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-
-	usr := new(userData.NewUser)
-
-	err := dec.Decode(usr)
+func (h *userHandler) register(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var userToCreate user.UserCreate
+	code, err := jsonutil.Decode(w, r, &userToCreate)
 	if err != nil {
-		var syntaxError *json.SyntaxError
-		var unmarshalTypeError *json.UnmarshalTypeError
-
-		switch {
-		case errors.As(err, &syntaxError):
-			msg := fmt.Sprintf("Request body contains badly-formed JSON (at position %d)", syntaxError.Offset)
-			http.Error(w, msg, http.StatusBadRequest)
-		case errors.As(err, &unmarshalTypeError):
-			msg := fmt.Sprintf("Request body contains an invalid value for the %q field (at position %d)", unmarshalTypeError.Field, unmarshalTypeError.Offset)
-			http.Error(w, msg, http.StatusBadRequest)
-		case errors.Is(err, io.ErrUnexpectedEOF):
-			msg := fmt.Sprintf("Request body contains badly-formed JSON")
-			http.Error(w, msg, http.StatusBadRequest)
-		case strings.HasPrefix(err.Error(), "json: unknown field "):
-			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
-			msg := fmt.Sprintf("Request body contains unknown field %s", fieldName)
-			http.Error(w, msg, http.StatusBadRequest)
-		case errors.Is(err, io.EOF):
-			msg := "Request body must not be empty"
-			http.Error(w, msg, http.StatusBadRequest)
-		case err.Error() == "http: request body too large":
-			msg := "Request body must not be larger than 1MB"
-			http.Error(w, msg, http.StatusRequestEntityTooLarge)
-		default:
-			log.Error(err.Error())
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
-
+		http.Error(w, err.Error(), code)
 		return
 	}
 
-	// Call decode again, using a pointer to an empty anonymous struct as
-	// the destination. If the request body only contained a single JSON
-	// object this will return an io.EOF error. So if we get anything else,
-	// we know that there is additional data in the request body.
-	err = dec.Decode(&struct{}{})
-	if err != io.EOF {
-		msg := "Request body must only contain a single JSON object"
-		http.Error(w, msg, http.StatusBadRequest)
+	user, err := h.userManager.Register(r.Context(), userToCreate)
+
+	if err != nil {
+		log.Error("user register error ", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Internal server error"))
 		return
 	}
 
-	fmt.Fprintf(w, "User: %+v", usr)
+	userJson, err := json.Marshal(user)
+	if err != nil {
+		log.Error("json marshalization failed", err)
+		// log.Printf("user register json encoding error %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Internal server error"))
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Write(userJson)
 }
